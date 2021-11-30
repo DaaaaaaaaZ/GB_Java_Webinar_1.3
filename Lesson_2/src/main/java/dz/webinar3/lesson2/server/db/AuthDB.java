@@ -32,33 +32,32 @@ public class AuthDB {
     }
 
     private void initDB() throws SQLException {
-        stmt.executeUpdate("CREATE TABLE IF NOT EXISTS users (\n" +
+        //Пересоздаем таблицу для задания
+        stmt.execute("DROP TABLE IF EXISTS users;");
+        stmt.executeUpdate("CREATE TABLE users (\n" +
                 " id    INTEGER PRIMARY KEY AUTOINCREMENT,\n" +
                 " nick  TEXT,\n" +
                 " login  TEXT,\n" +
                 " password  TEXT\n" +
                 " );");
-        //Для задания проверяем по Николаю необходимость вставки
         ResultSet r = stmt.executeQuery("SELECT COUNT() FROM users WHERE nick = 'Коля';");
-        if (r.getInt(1) < 1) {
-            stmt.executeUpdate("INSERT INTO users (nick, login, password) VALUES " +
-                    "('Коля', 'login0', 'pass0'), " +
-                    "('Боря', 'login1', 'pass1'), " +
-                    "('Костя', 'login2', 'pass2') " +
-                    ";");
-        }
+        stmt.executeUpdate("INSERT INTO users (nick, login, password) VALUES " +
+                "('Коля', 'login0', 'pass0'), " +
+                "('Боря', 'login1', 'pass1'), " +
+                "('Маша', 'login2', 'pass2'), " +
+                "('Костя', 'login3', 'pass3') " +
+                ";");
     }
 
     public synchronized String getNickByLoginAndPassword (String inputLogin, String inputPassword) throws IOException {
-        String login = inputLogin.replaceAll("-|'", "");
-        String password = inputPassword.replaceAll("-|'", "");
-
-
         try {
             String query = "SELECT COUNT (*), nick FROM users WHERE " +
-                    "login = '" + login + "' AND password = '" + password + "';";
+                    "login = ? AND password = ?;";
             //System.out.println(query);
-            ResultSet rs = stmt.executeQuery(query);
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setString(1, inputLogin);
+            pstmt.setString(2, inputPassword);
+            ResultSet rs = pstmt.executeQuery();
 
             if (rs.getInt(1) > 0) {
                 return rs.getString (2);
@@ -71,12 +70,24 @@ public class AuthDB {
     }
 
     public String renameNick(String clientNick, String inputNewNick) {
-        String newNick = inputNewNick.replaceAll("[.'-]", "");
-        String query = "UPDATE users SET nick = '" + newNick + "' WHERE nick = '" + clientNick + "';";
+        String query = "UPDATE users SET nick = ? WHERE nick = ?;";
         try {
-            int queryResult = stmt.executeUpdate(query);
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setString(1, inputNewNick);
+            pstmt.setString(2, clientNick);
+            int queryResult = pstmt.executeUpdate();
+
             if (queryResult > 0) {
-                return newNick;
+                //Не нашел ничего лучшего, чем получить через базу данных обработанную
+                //prepareStatement строку
+                pstmt = connection.prepareStatement("SELECT nick FROM users WHERE nick = ?;");
+                pstmt.setString(1, inputNewNick);
+                ResultSet rs = pstmt.executeQuery();
+                if (rs.next()) {
+                    return rs.getString(1);
+                } else {
+                    throw new SQLException();
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();

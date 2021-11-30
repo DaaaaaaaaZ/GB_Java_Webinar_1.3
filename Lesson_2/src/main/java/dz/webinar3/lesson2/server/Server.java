@@ -44,11 +44,6 @@ public class Server {
             System.out.println("Сервер не запускается");
             System.exit(-1);
         }
-        /*
-        clientDataList.add (new Entry("Коля", "login0", "pass0"));
-        clientDataList.add (new Entry("Боря", "login1", "pass1"));
-        clientDataList.add (new Entry("Костя", "login2", "pass2"));
-         */
     }
 
     public static void main(String[] args) {
@@ -119,7 +114,7 @@ public class Server {
             private long startTimeForAuth = System.currentTimeMillis();
             private DataInputStream in;
             private DataOutputStream out;
-            private boolean isStartMessageSend = false;
+            private boolean isStartMessageSent = false;
 
             @Override
             public void run() {
@@ -132,10 +127,10 @@ public class Server {
 
                     while (!isAuthOk) {//Цикл аутентификации
                         try {
-                            if (!isStartMessageSend) {
+                            if (!isStartMessageSent) {
+                                isStartMessageSent = true;
                                 out.writeUTF("Для аутентификации введите \n" + CMD_AUTH + " login password");
                                 out.flush();
-                                isStartMessageSend = true;
                             }
 
                             try {//Ждем сообщений от клиента и проверяем время таймаута
@@ -173,7 +168,12 @@ public class Server {
                         }
                     } //Конец цикла аутентификации
 
+
                     while (true) {//Рабочий цикл для чтения и отправки сообщений
+                        if (in.available() == 0) {
+                            continue;
+                        }
+
                         try {
                             inMsg = in.readUTF();
                         } catch (EOFException e) {
@@ -213,9 +213,13 @@ public class Server {
                     }//Конец цикла входящий сообщений
 
                 } catch (SocketException e) {
+                    //e.printStackTrace();
                     if (socket != null) {
                         System.out.println("Сокет " + socket.getInetAddress() + ":"
                                 + socket.getPort() + " закрыт");
+                        if (clientNick != null && clients.containsKey(clientNick)) {
+                            clients.remove(clientNick);
+                        }
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
